@@ -1,0 +1,60 @@
+{
+  global_options: {
+    auto_https: off
+  }
+}
+
+https://node-01.nuverther.local:8443 {
+  tls internal
+  reverse_proxy node-01:4101
+}
+
+https://node-02.nuverther.local:8443 {
+  tls internal
+  reverse_proxy node-02:4102
+}
+
+https://node-03.nuverther.local:8443 {
+  tls internal
+  reverse_proxy node-03:4103
+}
+
+https://node-04.nuverther.local:8443 {
+  tls internal
+  reverse_proxy node-04:4104
+}
+
+https://node-05.nuverther.local:8443 {
+  tls internal
+  reverse_proxy node-05:4105
+}
+
+https://node-06.nuverther.local:8443 {
+  tls internal
+  reverse_proxy node-06:4106
+}
+
+https://node-07.nuverther.local:8443 {
+  tls internal
+  reverse_proxy node-07:4107
+}
+
+https://node-08.nuverther.local:8443 {
+  tls internal
+  reverse_proxy node-08:4108
+}
+
+https://node-09.nuverther.local:8443 {
+  tls internal
+  reverse_proxy node-09:4109
+}
+
+https://node-10.nuverther.local:8443 {
+  tls internal
+  reverse_proxy node-10:4110
+}
+
+https://node-11.nuverther.local:8443 {
+  tls internal
+  reverse_proxy node-11:4111
+}

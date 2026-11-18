@@ -1,0 +1,157 @@
+x-node-common: &node-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  depends_on:
+    postgres:
+      condition: service_healthy
+  environment: &node-env
+    DATABASE_URL: postgresql://nuverther:${POSTGRES_PASSWORD:-nuverther_dev_pg}@postgres:5432/nuverther
+    NUVERTHER_HOST: 0.0.0.0
+    NUVERTHER_HASHCASH_BITS: "16"
+    NUVERTHER_NODE_SEED: ${NUVERTHER_NODE_SEED:-nuverther-cluster-seed}
+    NUVERTHER_BOOTSTRAP_PEERS: http://node-01:4101,http://node-02:4102,http://node-03:4103,http://node-04:4104,http://node-05:4105,http://node-06:4106,http://node-07:4107,http://node-08:4108,http://node-09:4109,http://node-10:4110,http://node-11:4111
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: nuverther
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nuverther_dev_pg}
+      POSTGRES_DB: nuverther
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nuverther -d nuverther"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  tls-proxy:
+    image: caddy:2-alpine
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - node-01
+      - node-02
+      - node-03
+      - node-04
+      - node-05
+      - node-06
+      - node-07
+      - node-08
+      - node-09
+      - node-10
+      - node-11
+    restart: unless-stopped
+
+  node-01:
+    <<: *node-common
+    environment:
+      <<: *node-env
+      NUVERTHER_PEER_ID: witness-01
+      NUVERTHER_PORT: "4101"
+      NUVERTHER_DB_SCHEMA: witness_01
+      NUVERTHER_PUBLIC_ENDPOINT: http://node-01:4101
+
+  node-02:
+    <<: *node-common
+    environment:
+      <<: *node-env
+      NUVERTHER_PEER_ID: witness-02
+      NUVERTHER_PORT: "4102"
+      NUVERTHER_DB_SCHEMA: witness_02
+      NUVERTHER_PUBLIC_ENDPOINT: http://node-02:4102
+
+  node-03:
+    <<: *node-common
+    environment:
+      <<: *node-env
+      NUVERTHER_PEER_ID: witness-03
+      NUVERTHER_PORT: "4103"
+      NUVERTHER_DB_SCHEMA: witness_03
+      NUVERTHER_PUBLIC_ENDPOINT: http://node-03:4103
+
+  node-04:
+    <<: *node-common
+    environment:
+      <<: *node-env
+      NUVERTHER_PEER_ID: witness-04
+      NUVERTHER_PORT: "4104"
+      NUVERTHER_DB_SCHEMA: witness_04
+      NUVERTHER_PUBLIC_ENDPOINT: http://node-04:4104
+
+  node-05:
+    <<: *node-common
+    environment:
+      <<: *node-env
+      NUVERTHER_PEER_ID: witness-05
+      NUVERTHER_PORT: "4105"
+      NUVERTHER_DB_SCHEMA: witness_05
+      NUVERTHER_PUBLIC_ENDPOINT: http://node-05:4105
+
+  node-06:
+    <<: *node-common
+    environment:
+      <<: *node-env
+      NUVERTHER_PEER_ID: witness-06
+      NUVERTHER_PORT: "4106"
+      NUVERTHER_DB_SCHEMA: witness_06
+      NUVERTHER_PUBLIC_ENDPOINT: http://node-06:4106
+
+  node-07:
+    <<: *node-common
+    environment:
+      <<: *node-env
+      NUVERTHER_PEER_ID: witness-07
+      NUVERTHER_PORT: "4107"
+      NUVERTHER_DB_SCHEMA: witness_07
+      NUVERTHER_PUBLIC_ENDPOINT: http://node-07:4107
+
+  node-08:
+    <<: *node-common
+    environment:
+      <<: *node-env
+      NUVERTHER_PEER_ID: witness-08
+      NUVERTHER_PORT: "4108"
+      NUVERTHER_DB_SCHEMA: witness_08
+      NUVERTHER_PUBLIC_ENDPOINT: http://node-08:4108
+
+  node-09:
+    <<: *node-common
+    environment:
+      <<: *node-env
+      NUVERTHER_PEER_ID: witness-09
+      NUVERTHER_PORT: "4109"
+      NUVERTHER_DB_SCHEMA: witness_09
+      NUVERTHER_PUBLIC_ENDPOINT: http://node-09:4109
+
+  node-10:
+    <<: *node-common
+    environment:
+      <<: *node-env
+      NUVERTHER_PEER_ID: witness-10
+      NUVERTHER_PORT: "4110"
+      NUVERTHER_DB_SCHEMA: witness_10
+      NUVERTHER_PUBLIC_ENDPOINT: http://node-10:4110
+
+  node-11:
+    <<: *node-common
+    environment:
+      <<: *node-env
+      NUVERTHER_PEER_ID: witness-11
+      NUVERTHER_PORT: "4111"
+      NUVERTHER_DB_SCHEMA: witness_11
+      NUVERTHER_PUBLIC_ENDPOINT: http://node-11:4111
+
+volumes:
+  pgdata:
+  caddy_data:

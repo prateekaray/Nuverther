@@ -1,0 +1,7 @@
+[package]
+name = "nuverther_spend"
+type = "bin"
+authors = ["Nuverther Engineering"]
+compiler_version = ">=1.0.0"
+
+[dependencies]
