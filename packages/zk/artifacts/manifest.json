@@ -1,9 +1,10 @@
 {
   "circuitName": "nuverther_spend",
+  "treeDepth": 20,
   "noirVersion": "nargo version = 1.0.0",
-  "noirJsVersion": "1.0.0",
-  "bbJsVersion": "5.3.0",
-  "circuitSha256": "a4077034987c92441951b377cc4232da304caed7b2b8996a791a768028a93a8d",
-  "vkSha256": "b90f3c8c5087d8d901e46b94f655cdd1c55c2693bdc05d73c55868f9d128a2e7",
+  "noirJsVersion": "^1.0.0",
+  "bbJsVersion": "^5.3.0",
+  "circuitSha256": "bb16e0073421c1ef5a3cbba78544fd404f49bd777e958e8de2b7001a837e1af0",
+  "vkSha256": "bb68bcfa870fe95b8f03d44246c71fe80d87dcfec59474cd00dd583a2aecbf70",
   "vkBytes": 3680
 }

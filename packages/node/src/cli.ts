@@ -1,6 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { generateNodeKeypair } from './crypto.ts';
+import {
+  generateNodeKeypair,
+  type HybridPublicKeys,
+  type SignedEpochDirectory,
+} from './crypto.ts';
 import { NuvertherNode } from './server.ts';
 
 function requireEnv(name: string, fallback?: string): string {
@@ -36,6 +40,18 @@ async function main(): Promise<void> {
       ? { cert: readFileSync(tlsCertPath), key: readFileSync(tlsKeyPath) }
       : undefined;
 
+  const trustedGovernanceKeys = process.env.NUVERTHER_TRUSTED_GOV_KEYS_JSON
+    ? (JSON.parse(process.env.NUVERTHER_TRUSTED_GOV_KEYS_JSON) as HybridPublicKeys[])
+    : undefined;
+  const governanceThreshold = process.env.NUVERTHER_GOV_THRESHOLD
+    ? Number(process.env.NUVERTHER_GOV_THRESHOLD)
+    : undefined;
+  const initialEpochDirectory = process.env.NUVERTHER_INITIAL_EPOCH_DIR_FILE
+    ? (JSON.parse(
+        readFileSync(process.env.NUVERTHER_INITIAL_EPOCH_DIR_FILE, 'utf8'),
+      ) as SignedEpochDirectory)
+    : undefined;
+
   const node = new NuvertherNode({
     peerId,
     host,
@@ -44,37 +60,29 @@ async function main(): Promise<void> {
     databaseUrl,
     dbSchema,
     keypair,
+    trustedGovernanceKeys,
+    governanceThreshold,
+    initialEpochDirectory,
     hashcashBits,
+    relayPowBits: process.env.NUVERTHER_RELAY_POW_BITS
+      ? Number(process.env.NUVERTHER_RELAY_POW_BITS)
+      : undefined,
+    relayTimeoutMs: process.env.NUVERTHER_RELAY_TIMEOUT_MS
+      ? Number(process.env.NUVERTHER_RELAY_TIMEOUT_MS)
+      : undefined,
+    maxRelayResponseBytes: process.env.NUVERTHER_MAX_RELAY_RESPONSE_BYTES
+      ? Number(process.env.NUVERTHER_MAX_RELAY_RESPONSE_BYTES)
+      : undefined,
+    relayJitterMaxMs: process.env.NUVERTHER_RELAY_JITTER_MS
+      ? Number(process.env.NUVERTHER_RELAY_JITTER_MS)
+      : undefined,
+    allowLoopbackPeers: process.env.NUVERTHER_ALLOW_LOOPBACK_PEERS === 'true',
+    allowPrivateNetworkPeers: process.env.NUVERTHER_ALLOW_PRIVATE_PEERS === 'true',
     tls,
     logLevel: process.env.LOG_LEVEL ?? 'info',
   });
 
-  const endpoint = await node.start();
-
-  // Bootstrap peers if comma-separated NUVERTHER_BOOTSTRAP_PEERS provided
-  const bootstrap = (process.env.NUVERTHER_BOOTSTRAP_PEERS ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  if (bootstrap.length > 0) {
-    const selfRecord = node.getSignedIdentity();
-    for (const peerUrl of bootstrap) {
-      if (peerUrl === endpoint) continue;
-      for (let attempt = 0; attempt < 5; attempt++) {
-        try {
-          const resp = await fetch(`${peerUrl}/v1/peers`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(selfRecord),
-          });
-          if (resp.ok) break;
-        } catch {
-          await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
-        }
-      }
-    }
-  }
+  await node.start();
 
   const shutdown = async (signal: string) => {
     node.logger.info({ signal }, 'Received shutdown signal');

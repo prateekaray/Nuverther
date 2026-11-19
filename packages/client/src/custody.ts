@@ -5,8 +5,20 @@ import { argon2idAsync } from '@noble/hashes/argon2.js';
 import { sha3_256 } from '@noble/hashes/sha3.js';
 import { ml_dsa65 } from '@noble/post-quantum/ml-dsa.js';
 import { combine, split } from 'shamir-secret-sharing';
-import { bytesToFieldScalar, computeOwnerPk, normalizeFieldHex } from '@nuverther/zk';
-import { signHybrid, type HybridSignature } from '@nuverther/node';
+import {
+  bytesToFieldScalar,
+  computeCommitment,
+  computeOwnerPk,
+  normalizeFieldHex,
+  randomFieldElement,
+} from '@nuverther/zk';
+import {
+  computeAuthPkHash,
+  issuanceSigningPayload,
+  signHybrid,
+  type HybridSignature,
+  type SignedIssuanceRecord,
+} from '@nuverther/node';
 
 export interface Argon2Params {
   t: number;
@@ -25,6 +37,7 @@ export interface NuvertherWalletKeys {
   spendSecret: bigint;
   ownerPk: bigint;
   ownerPkHex: string;
+  authPkHash: string;
   ed25519Sk: Uint8Array;
   ed25519Pk: Uint8Array;
   ed25519PkHex: string;
@@ -52,22 +65,27 @@ export async function deriveWalletFromSeed(masterSeed: Uint8Array): Promise<Nuve
   const edSeed = sha3_256(Buffer.concat([masterSeed, Buffer.from('nuv-ed25519-v1', 'utf8')]));
   const pqSeed = sha3_256(Buffer.concat([masterSeed, Buffer.from('nuv-mldsa65-v1', 'utf8')]));
 
-  const spendSecret = bytesToFieldScalar(spendSeed);
-  const ownerPk = await computeOwnerPk(spendSecret);
   const edKeys = ed25519.keygen(edSeed);
   const pqKeys = ml_dsa65.keygen(pqSeed);
+  const ed25519PkHex = Buffer.from(edKeys.publicKey).toString('hex');
+  const mldsa65PkB64 = Buffer.from(pqKeys.publicKey).toString('base64');
+  const authPkHash = computeAuthPkHash({ ed25519PkHex, mldsa65PkB64 });
+
+  const spendSecret = bytesToFieldScalar(spendSeed);
+  const ownerPk = await computeOwnerPk(spendSecret, BigInt(authPkHash));
 
   return {
     masterSeed: new Uint8Array(masterSeed),
     spendSecret,
     ownerPk,
     ownerPkHex: normalizeFieldHex(ownerPk),
+    authPkHash,
     ed25519Sk: edKeys.secretKey,
     ed25519Pk: edKeys.publicKey,
-    ed25519PkHex: Buffer.from(edKeys.publicKey).toString('hex'),
+    ed25519PkHex,
     mldsa65Sk: pqKeys.secretKey,
     mldsa65Pk: pqKeys.publicKey,
-    mldsa65PkB64: Buffer.from(pqKeys.publicKey).toString('base64'),
+    mldsa65PkB64,
   };
 }
 
@@ -155,4 +173,54 @@ export function signCanonicalMessage(
   keys: NuvertherWalletKeys,
 ): HybridSignature {
   return signHybrid(payload, keys.ed25519Sk, keys.mldsa65Sk);
+}
+
+export async function createSignedIssuance(params: {
+  issuanceId: string;
+  epoch: number;
+  txKind: 'genesis' | 'mint';
+  amount: bigint;
+  recipientOwnerPk: bigint;
+  blinding?: bigint;
+  leafIndex: number;
+  issuerKeys: {
+    ed25519Sk: Uint8Array;
+    ed25519Pk: Uint8Array;
+    mldsa65Sk: Uint8Array;
+    mldsa65Pk: Uint8Array;
+  };
+}): Promise<{ record: SignedIssuanceRecord; blinding: bigint }> {
+  const blinding = params.blinding ?? randomFieldElement();
+  const ownerPkHex = normalizeFieldHex(params.recipientOwnerPk);
+  const blindingHex = normalizeFieldHex(blinding);
+  const noteCommitmentHex = normalizeFieldHex(
+    await computeCommitment(params.amount, params.recipientOwnerPk, blinding),
+  );
+  const issuerPub = {
+    ed25519PkHex: Buffer.from(params.issuerKeys.ed25519Pk).toString('hex'),
+    mldsa65PkB64: Buffer.from(params.issuerKeys.mldsa65Pk).toString('base64'),
+  };
+  const payloadBase = {
+    issuanceId: params.issuanceId,
+    epoch: params.epoch,
+    txKind: params.txKind,
+    amount: params.amount.toString(),
+    ownerPkHex,
+    blindingHex,
+    noteCommitmentHex,
+    leafIndex: params.leafIndex,
+  };
+  const issuerSig = signHybrid(
+    issuanceSigningPayload(payloadBase),
+    params.issuerKeys.ed25519Sk,
+    params.issuerKeys.mldsa65Sk,
+  );
+  return {
+    record: {
+      ...payloadBase,
+      issuerPub,
+      issuerSig,
+    },
+    blinding,
+  };
 }
